@@ -38,6 +38,17 @@ async function run() {
         res.send({token})
       })
 
+      app.get('/products', async(req, res)=>{
+        const result = await productCollection.find().toArray()
+        res.send(result)
+      })
+
+      app.post('/products', async(req, res)=>{
+        const item = req.body
+        const result = await productCollection.insertOne(item)
+        res.send(result)
+      })
+
       app.post('/users' , async (req, res)=>{
         const user = req.body
         const query = {email: user.email}
