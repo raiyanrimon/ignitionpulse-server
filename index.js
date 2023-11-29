@@ -84,6 +84,49 @@ async function run() {
         const result = await productCollection.insertOne(item)
         res.send(result)
       })
+
+      app.patch('/products/accept/:id', async (req, res)=>{
+        const id = req.params.id
+      const filter = {_id : new ObjectId(id)}
+      const updatedDoc ={
+        $set: {
+          status: 'accepted'
+        }
+      }
+      const result = await productCollection.updateOne(filter, updatedDoc)
+      res.send(result)
+      })
+
+      app.patch('/products/reject/:id', async (req, res)=>{
+        const id = req.params.id
+      const filter = {_id : new ObjectId(id)}
+      const updatedDoc ={
+        $set: {
+          status: 'rejected'
+        }
+      }
+      const result = await productCollection.updateOne(filter, updatedDoc)
+      res.send(result)
+      })
+
+      app.patch('/products/feature/:id', async (req, res)=>{
+        const id = req.params.id
+      const filter = {_id : new ObjectId(id)}
+      const updatedDoc ={
+        $set: {
+          isFeatured: 'featured'
+        }
+      }
+      const result = await productCollection.updateOne(filter, updatedDoc)
+      res.send(result)
+      })
+
+      // app.get('/products/:id', async (req, res)=>{
+      //   const id = req.params.id
+      //   const query = {_id: new ObjectId(id)}
+      //   const result = await productCollection.findOne(query)
+      //   res.send(result)
+      // })
       
       app.get('/products/user/:email', async (req, res)=>{
         const email = req.params.email
