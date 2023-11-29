@@ -29,6 +29,7 @@ async function run() {
 
     const productCollection = client.db('ignitionpulse').collection('products')
     const userCollection = client.db('ignitionpulse').collection('users')
+    const reviewCollection = client.db('ignitionpulse').collection('reviews')
 
     app.post('/jwt',async (req, res)=>{
         const user = req.body
@@ -42,11 +43,53 @@ async function run() {
         const result = await productCollection.find().toArray()
         res.send(result)
       })
+      app.get('/products/:id', async(req, res)=>{
+        const id = req.params.id
+        const query = {_id : new ObjectId(id)}
+        const result = await productCollection.findOne(query)
+        res.send(result)
+      })
+
+      app.patch('/products/:id', async (req, res) => {
+        const item = req.body;
+        const id = req.params.id;
+        const filter = { _id: new ObjectId(id) }
+        const updatedDoc = {
+          $set: {
+            name: item.name,
+            description: item.description,
+            image: item.image,
+            tags: item.tags,
+            link: item.link
+          }
+        }
+  
+        const result = await menuCollection.updateOne(filter, updatedDoc)
+        res.send(result);
+      })
+
+      app.post('/reviews', async (req, res)=>{
+        const review = req.body
+        const result = await reviewCollection.insertOne(review)
+        res.send(result)
+      })
+
+      app.get('/reviews', async(req, res)=>{
+        const result = await reviewCollection.find().toArray()
+        res.send(result)
+      })
 
       app.post('/products', async(req, res)=>{
         const item = req.body
         const result = await productCollection.insertOne(item)
         res.send(result)
+      })
+      
+      app.get('/products/user/:email', async (req, res)=>{
+        const email = req.params.email
+       const query = {email: email}
+       const result = await productCollection.find(query).toArray()
+       res.send(result)
       })
 
       app.delete('/products/:id', async (req, res)=>{
@@ -67,9 +110,38 @@ async function run() {
         res.send(result)
   
       })
+
+      app.get('/users', async(req, res)=>{
+        const result = await userCollection.find().toArray()
+        res.send(result)
+      })
+
+      app.patch('/users/admin/:id', async(req, res)=>{
+        const id = req.params.id
+        const filter = {_id : new ObjectId(id)}
+        const updatedDoc ={
+          $set: {
+            role: 'admin'
+          }
+        }
+        const result = await userCollection.updateOne(filter, updatedDoc)
+        res.send(result)
+      })
+
+      app.patch('/users/mod/:id', async(req, res)=>{
+        const id = req.params.id
+        const filter = {_id : new ObjectId(id)}
+        const updatedDoc ={
+          $set: {
+            role: 'moderator'
+          }
+        }
+        const result = await userCollection.updateOne(filter, updatedDoc)
+        res.send(result)
+      })
     // Send a ping to confirm a successful connection
     // await client.db("admin").command({ ping: 1 });
-    console.log("Pinged your deployment. You successfully connected to MongoDB!");
+    // console.log("Pinged your deployment. You successfully connected to MongoDB!");
   } finally {
     // Ensures that the client will close when you finish/error
   
