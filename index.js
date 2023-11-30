@@ -1,6 +1,7 @@
 const express = require('express');
 const cors = require('cors');
 const jwt = require('jsonwebtoken');
+const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY)
 const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
 require('dotenv').config()
 const app = express()
@@ -30,6 +31,7 @@ async function run() {
     const productCollection = client.db('ignitionpulse').collection('products')
     const userCollection = client.db('ignitionpulse').collection('users')
     const reviewCollection = client.db('ignitionpulse').collection('reviews')
+    const couponCollection = client.db('ignitionpulse').collection('coupons')
 
     app.post('/jwt',async (req, res)=>{
         const user = req.body
@@ -86,12 +88,35 @@ async function run() {
         const result = await productCollection.find().toArray()
         res.send(result)
       })
-      app.get('/products/:id',verifyToken, async(req, res)=>{
+      app.get('/products/:id', async(req, res)=>{
         const id = req.params.id
         const query = {_id : new ObjectId(id)}
         const result = await productCollection.findOne(query)
         res.send(result)
       })
+
+      app.patch('/products/upvote/:id', verifyToken, async (req, res) => {
+       
+          const id = req.params.id;
+      
+          const filter = { _id: new ObjectId(id) };
+      
+          
+          const existingProduct = await productCollection.findOne(filter);
+      
+          const currentVote = existingProduct.vote || 0;
+      
+         
+          const updatedDoc = {
+            $set: {
+              vote: currentVote + 1,
+            },
+          };
+      
+          const result = await productCollection.updateOne(filter, updatedDoc);
+         res.send(result)
+        } 
+      );
 
       app.patch('/products/:id',verifyToken, async (req, res) => {
         const item = req.body;
@@ -111,6 +136,42 @@ async function run() {
         res.send(result);
       })
 
+      app.get("/products", async (req, res) => {
+        try {
+          const { page = 1, searchTerm = "", tags } = req.query;
+          const itemsPerPage = 20;
+      
+          const regex = new RegExp(searchTerm, "i");
+          
+          // Build the query object based on status, tags, and search
+          const query = {
+            status: "accepted" ,
+            $or: [{ name: regex }, { description: regex }],
+          };
+      
+          if (tags && Array.isArray(tags)) {
+            // If tags are provided, add them to the query
+            query.tags = { $in: tags };
+          }
+      
+          const products = await productCollection
+            .find(query)
+            .limit(itemsPerPage)
+            .skip((page - 1) * itemsPerPage)
+            .toArray();
+      
+          const totalProducts = await productCollection.countDocuments(query);
+      
+          const totalPages = Math.ceil(totalProducts / itemsPerPage);
+      
+          res.json({ products, totalPages });
+        } catch (error) {
+          console.error("Error fetching products:", error);
+          res.status(500).json({ error: "Internal Server Error" });
+        }
+      });
+      
+
       app.post('/reviews',verifyToken, async (req, res)=>{
         const review = req.body
         const result = await reviewCollection.insertOne(review)
@@ -126,6 +187,18 @@ async function run() {
         const item = req.body
         const result = await productCollection.insertOne(item)
         res.send(result)
+      })
+
+      app.patch('/products/report/:id',verifyToken, async (req, res)=>{
+        const id = req.params.id
+      const filter = {_id : new ObjectId(id)}
+      const updatedDoc ={
+        $set: {
+          isReported: 'reported'
+        }
+      }
+      const result = await productCollection.updateOne(filter, updatedDoc)
+      res.send(result)
       })
 
       app.patch('/products/accept/:id',verifyToken,verifyMod, async (req, res)=>{
@@ -269,6 +342,26 @@ async function run() {
         reviews
       })
     })
+
+    app.post('/coupons', async (req, res)=>{
+      const coupon = req.body
+      const result = await couponCollection.insertOne(coupon)
+      res.send(coupon)
+    })
+    
+    app.get('/coupons', async(req, res)=>{
+      const result = await couponCollection.find().toArray()
+      res.send(result)
+    })
+
+    app.delete('/coupons/:id', async (req, res)=>{
+      const id = req.params.id
+      const query = {_id : new ObjectId(id)}
+      const result = await couponCollection.deleteOne(query)
+      res.send(result)
+    })
+
+    
     // Send a ping to confirm a successful connection
     // await client.db("admin").command({ ping: 1 });
     // console.log("Pinged your deployment. You successfully connected to MongoDB!");
