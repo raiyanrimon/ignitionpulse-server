@@ -237,12 +237,7 @@ async function run() {
       res.send(result)
       })
 
-      // app.get('/products/:id', async (req, res)=>{
-      //   const id = req.params.id
-      //   const query = {_id: new ObjectId(id)}
-      //   const result = await productCollection.findOne(query)
-      //   res.send(result)
-      // })
+     
       
       app.get('/products/user/:email',verifyToken, async (req, res)=>{
         const email = req.params.email
@@ -305,7 +300,7 @@ async function run() {
   
       })
 
-      app.patch('/users/admin/:id',verifyAdmin, verifyToken, async(req, res)=>{
+      app.patch('/users/admin/:id', verifyToken,verifyAdmin, async(req, res)=>{
         const id = req.params.id
         const filter = {_id : new ObjectId(id)}
         const updatedDoc ={
@@ -317,7 +312,7 @@ async function run() {
         res.send(result)
       })
 
-      app.patch('/users/mod/:id',verifyAdmin, verifyToken, async(req, res)=>{
+      app.patch('/users/mod/:id', verifyToken,verifyAdmin, async(req, res)=>{
         const id = req.params.id
         const filter = {_id : new ObjectId(id)}
         const updatedDoc ={
