@@ -39,18 +39,61 @@ async function run() {
         res.send({token})
       })
 
+
+      // middlewares
+    const verifyToken = (req, res, next)=>{
+      console.log('inside verify token', req.headers.authorization);
+      if(!req.headers.authorization){
+        return res.status(401).send({message: 'unauthorized  access'})
+      }
+      const token = req.headers.authorization.split(' ')[1]
+      jwt.verify(token,process.env.ACCESS_SECRET_TOKEN, (err , decoded)=>{
+        if(err){
+          return res.status(401).send({message: 'unauthorized  access'})
+      }
+      req.decoded = decoded
+      next()
+      } )
+      
+    }
+
+    const verifyAdmin = async (req, res, next)=>{
+      const email = req.decoded.email
+      console.log(email);
+      const query = {email: email}
+      const user = await userCollection.findOne(query)
+      const isAdmin = user?.role === 'admin'
+      if(!isAdmin){
+        return res.status(403).send({message: 'forbidden access'})
+      }
+      next()
+
+    }
+
+    const verifyMod = async (req, res, next)=>{
+      const email = req.decoded.email
+      const query = {email: email}
+      const user = await userCollection.findOne(query)
+      const isMod = user?.role === 'moderator'
+      if(!isMod){
+        return res.status(403).send({message: 'forbidden access'})
+      }
+      next()
+
+    }
+
       app.get('/products', async(req, res)=>{
         const result = await productCollection.find().toArray()
         res.send(result)
       })
-      app.get('/products/:id', async(req, res)=>{
+      app.get('/products/:id',verifyToken, async(req, res)=>{
         const id = req.params.id
         const query = {_id : new ObjectId(id)}
         const result = await productCollection.findOne(query)
         res.send(result)
       })
 
-      app.patch('/products/:id', async (req, res) => {
+      app.patch('/products/:id',verifyToken, async (req, res) => {
         const item = req.body;
         const id = req.params.id;
         const filter = { _id: new ObjectId(id) }
@@ -68,7 +111,7 @@ async function run() {
         res.send(result);
       })
 
-      app.post('/reviews', async (req, res)=>{
+      app.post('/reviews',verifyToken, async (req, res)=>{
         const review = req.body
         const result = await reviewCollection.insertOne(review)
         res.send(result)
@@ -79,13 +122,13 @@ async function run() {
         res.send(result)
       })
 
-      app.post('/products', async(req, res)=>{
+      app.post('/products',verifyToken, async(req, res)=>{
         const item = req.body
         const result = await productCollection.insertOne(item)
         res.send(result)
       })
 
-      app.patch('/products/accept/:id', async (req, res)=>{
+      app.patch('/products/accept/:id',verifyToken,verifyMod, async (req, res)=>{
         const id = req.params.id
       const filter = {_id : new ObjectId(id)}
       const updatedDoc ={
@@ -97,7 +140,7 @@ async function run() {
       res.send(result)
       })
 
-      app.patch('/products/reject/:id', async (req, res)=>{
+      app.patch('/products/reject/:id',verifyToken,verifyMod, async (req, res)=>{
         const id = req.params.id
       const filter = {_id : new ObjectId(id)}
       const updatedDoc ={
@@ -109,7 +152,7 @@ async function run() {
       res.send(result)
       })
 
-      app.patch('/products/feature/:id', async (req, res)=>{
+      app.patch('/products/feature/:id',verifyToken,verifyMod, async (req, res)=>{
         const id = req.params.id
       const filter = {_id : new ObjectId(id)}
       const updatedDoc ={
@@ -128,14 +171,14 @@ async function run() {
       //   res.send(result)
       // })
       
-      app.get('/products/user/:email', async (req, res)=>{
+      app.get('/products/user/:email',verifyToken, async (req, res)=>{
         const email = req.params.email
        const query = {email: email}
        const result = await productCollection.find(query).toArray()
        res.send(result)
       })
 
-      app.delete('/products/:id', async (req, res)=>{
+      app.delete('/products/:id',verifyToken, async (req, res)=>{
         const id = req.params.id
         const query = {_id : new ObjectId(id)}
         const result = await productCollection.deleteOne(query)
@@ -154,12 +197,42 @@ async function run() {
   
       })
 
-      app.get('/users', async(req, res)=>{
+      app.get('/users', verifyToken, verifyAdmin, async(req, res)=>{
         const result = await userCollection.find().toArray()
         res.send(result)
       })
 
-      app.patch('/users/admin/:id', async(req, res)=>{
+      app.get('/users/admin/:email', verifyToken, async (req, res)=>{
+        const email = req.params.email
+        if(email !== req.decoded.email){
+          return res.status(403).send({message: 'forbidden access'})
+        }
+        const query = {email: email}
+        const user = await userCollection.findOne(query)
+        let admin = false
+        if(user){
+          admin = user?.role === 'admin'
+        }
+        res.send({admin})
+  
+      })
+
+      app.get('/users/mod/:email', verifyToken, async (req, res)=>{
+        const email = req.params.email
+        if(email !== req.decoded.email){
+          return res.status(403).send({message: 'forbidden access'})
+        }
+        const query = {email: email}
+        const user = await userCollection.findOne(query)
+        let mod = false
+        if(user){
+          mod = user?.role === 'moderator'
+        }
+        res.send({mod})
+  
+      })
+
+      app.patch('/users/admin/:id',verifyAdmin, verifyToken, async(req, res)=>{
         const id = req.params.id
         const filter = {_id : new ObjectId(id)}
         const updatedDoc ={
@@ -171,7 +244,7 @@ async function run() {
         res.send(result)
       })
 
-      app.patch('/users/mod/:id', async(req, res)=>{
+      app.patch('/users/mod/:id',verifyAdmin, verifyToken, async(req, res)=>{
         const id = req.params.id
         const filter = {_id : new ObjectId(id)}
         const updatedDoc ={
@@ -182,6 +255,20 @@ async function run() {
         const result = await userCollection.updateOne(filter, updatedDoc)
         res.send(result)
       })
+
+       // stats or analytics
+     app.get('/admin-stats', verifyToken,verifyAdmin, async (req, res) => {
+      const users = await userCollection.estimatedDocumentCount();
+      const products = await productCollection.estimatedDocumentCount();
+      const reviews = await reviewCollection.estimatedDocumentCount();
+
+     
+      res.send({
+        users,
+        products,
+        reviews
+      })
+    })
     // Send a ping to confirm a successful connection
     // await client.db("admin").command({ ping: 1 });
     // console.log("Pinged your deployment. You successfully connected to MongoDB!");
